@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Authentication & Rating Submission</title>
+</head>
+<body>
+    <h1>Debug Rating Submission</h1>
+    
+    <button onclick="testAuth()">Test Authentication</button>
+    <button onclick="testRatingSubmission()">Test Rating Submission</button>
+    
+    <div id="results"></div>
+
+    <script>
+        async function testAuth() {
+            try {
+                const response = await fetch('/api/debug')
+                const data = await response.json()
+                document.getElementById('results').innerHTML = `
+                    <h3>Authentication Test:</h3>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `
+            } catch (error) {
+                document.getElementById('results').innerHTML = `
+                    <h3>Authentication Error:</h3>
+                    <pre>${error.message}</pre>
+                `
+            }
+        }
+
+        async function testRatingSubmission() {
+            const testData = {
+                geometry: {
+                    type: 'Point',
+                    coordinates: [-7.6177, 33.5731]
+                },
+                scores: {
+                    safety: 8,
+                    amenities: 7,
+                    livability: 9
+                },
+                note: 'Test rating from browser',
+                deviceId: 'test-browser-' + Date.now()
+            }
+
+            try {
+                console.log('Sending test rating:', testData)
+                const response = await fetch('/api/ratings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(testData)
+                })
+
+                const result = await response.json()
+                console.log('Response:', result)
+
+                document.getElementById('results').innerHTML = `
+                    <h3>Rating Submission Test:</h3>
+                    <p>Status: ${response.status}</p>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `
+            } catch (error) {
+                console.error('Error:', error)
+                document.getElementById('results').innerHTML = `
+                    <h3>Rating Submission Error:</h3>
+                    <pre>${error.message}</pre>
+                `
+            }
+        }
+    </script>
+</body>
+</html>
