@@ -61,20 +61,6 @@ export default function Legend({ category, heatmapStyle = 'density' }: LegendPro
             <span>10</span>
           </div>
         </div>
-
-        {/* Detailed color stops */}
-        {/* <div className="space-y-1">
-          {safetyColorStops.map((stop, index) => (
-            <div key={index} className="flex items-center gap-2 text-xs">
-              <div className={`w-4 h-3 rounded ${stop.color} flex items-center justify-center`}>
-                <span className={`text-[10px] font-bold ${stop.textColor}`}>
-                  {stop.score}
-                </span>
-              </div>
-              <span className="text-gray-700 font-medium">{stop.label}</span>
-            </div>
-          ))}
-        </div> */}
       </div>
 
       {/* Heat visualization info */}

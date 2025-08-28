@@ -5,22 +5,25 @@ const MONGODB_URI = process.env.MONGODB_URI!
 if (!MONGODB_URI) {
   throw new Error('Please define the MONGODB_URI environment variable inside .env.local')
 }
+  
+interface MongooseCache {
+  conn: typeof mongoose | null
+  promise: Promise<typeof mongoose> | null
+}
 
 // Extend global type to include mongoose
 declare global {
-  var mongoose: {
-    conn: typeof mongoose | null
-    promise: Promise<typeof mongoose> | null
-  }
+  var mongoose: MongooseCache | undefined
 }
 
-let cached = global.mongoose
-
-if (!cached) {
-  cached = global.mongoose = { conn: null, promise: null }
+// Initialize global mongoose if it doesn't exist
+if (!global.mongoose) {
+  global.mongoose = { conn: null, promise: null }
 }
 
-async function dbConnect() {
+const cached = global.mongoose as MongooseCache
+
+async function dbConnect(): Promise<typeof mongoose> {
   if (cached.conn) {
     return cached.conn
   }

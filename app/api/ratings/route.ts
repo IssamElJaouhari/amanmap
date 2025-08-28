@@ -24,14 +24,25 @@ export async function POST(request: NextRequest) {
     try {
       session = await requireAuth()
       console.log('👤 User authenticated:', { userId: session.user.id, email: session.user.email })
-    } catch (authError) {
+    } catch (authError: any) {
       console.error('🚫 Authentication failed:', authError.message)
       return NextResponse.json({ error: 'Authentication required. Please log in.' }, { status: 401 })
     }
     
     // Connect to database
-    await dbConnect()
-    console.log('🔗 Database connected successfully')
+    try {
+      await dbConnect()
+      console.log('🔗 Database connected successfully')
+    } catch (dbError: any) {
+      console.error('❌ Database connection failed:', dbError.message)
+      return NextResponse.json(
+        { 
+          error: 'Database connection failed. Please ensure MongoDB is running.',
+          details: 'Check your MONGODB_URI environment variable and MongoDB service.'
+        },
+        { status: 503 }
+      )
+    }
 
     // Rate limiting
     const rateLimitKey = session.user.id
@@ -167,7 +178,7 @@ export async function GET(request: NextRequest) {
       .limit(limit)
 
     return NextResponse.json({ ratings })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Get ratings error:', error)
     
     if (error.message === 'Unauthorized') {
