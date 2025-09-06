@@ -10,7 +10,7 @@ interface LegendProps {
 export default function Legend({ category, heatmapStyle = 'density' }: LegendProps) {
   const categoryLabels = {
     safety: 'Safety',
-    amenities: 'Amenities',
+    amenities: 'Ameniti',
     livability: 'Livability'
   }
 
