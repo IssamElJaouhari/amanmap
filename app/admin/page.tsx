@@ -178,7 +178,7 @@ export default function AdminPage() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-3">
                           <span className="text-sm font-medium text-gray-900">
-                            {rating.userId.email}
+                            {rating.userId?.email || 'Anonymous'}
                           </span>
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                             {rating.geometry.type}
