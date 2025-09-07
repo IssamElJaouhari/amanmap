@@ -165,16 +165,34 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    await requireAdmin()
+    const session = await requireAuth()
     const { searchParams } = new URL(request.url)
-    const status = searchParams.get('status') || 'pending'
+    const status = searchParams.get('status')
+    const userId = searchParams.get('userId')
     const limit = parseInt(searchParams.get('limit') || '50')
 
     await dbConnect()
 
-    const ratings = await Rating.find({ status })
-      .populate('userId', 'email')
-      .sort({ createdAt: -1 })
+    // If userId is provided, only return ratings for that user
+    // Otherwise, check if user is admin and return all ratings
+    let query: any = {}
+    
+    if (userId) {
+      if (userId !== session.user.id && !session.user.isAdmin) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+      query.userId = userId
+    } else if (!session.user.isAdmin) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    if (status) {
+      query.status = status
+    }
+
+    const ratings = await Rating.find(query)
+      .populate('userId', 'name email')
+      .sort({ updatedAt: -1 })
       .limit(limit)
 
     return NextResponse.json({ ratings })

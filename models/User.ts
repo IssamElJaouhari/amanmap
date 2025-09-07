@@ -2,6 +2,7 @@ import mongoose, { Document, Schema } from 'mongoose'
 
 export interface IUser extends Document {
   email: string
+  name?: string
   passwordHash: string
   roles: ('user' | 'moderator' | 'admin')[]
   provider: 'credentials' | 'google'
@@ -15,6 +16,10 @@ const UserSchema = new Schema<IUser>({
     required: true,
     unique: true,
     lowercase: true,
+    trim: true,
+  },
+  name: {
+    type: String,
     trim: true,
   },
   passwordHash: {

@@ -39,7 +39,9 @@ export const authOptions: NextAuthOptions = {
           return {
             id: user._id.toString(),
             email: user.email,
+            name: user.name || user.email.split('@')[0], // Fallback to email username if name not set
             roles: user.roles,
+            isAdmin: user.roles.includes('admin')
           }
         } catch (error) {
           console.error('Auth error:', error)
@@ -54,15 +56,21 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.roles = user.roles
         token.userId = user.id
+        token.email = user.email
+        token.name = user.name
+        token.roles = user.roles
+        token.isAdmin = user.roles.includes('admin')
       }
       return token
     },
     async session({ session, token }) {
       if (token) {
         session.user.id = token.userId as string
+        session.user.email = token.email as string
+        session.user.name = token.name as string | undefined
         session.user.roles = token.roles as string[]
+        session.user.isAdmin = token.isAdmin as boolean
       }
       return session
     },
