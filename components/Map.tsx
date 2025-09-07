@@ -222,75 +222,78 @@ export default function Map({ category, onDrawCreate, drawMode = null, heatmapSt
         data: heatmapData
       })
 
-      // Red heatmap (not safe to live)
+      // Red heatmap (very negative feedback - 1-2 stars)
       mapInstance.addLayer({
         id: 'red-heat',
         type: 'heatmap',
         source: 'heatmap',
-        filter: ['<', ['get', 'weight'], 0.3],
+        filter: ['<', ['get', 'weight'], 0.4],
         paint: {
-          'heatmap-weight': ['interpolate', ['linear'], ['get', 'weight'], 0, 0, 1, 1],
-          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 5, 0.1, 15, 1],
+          'heatmap-weight': ['interpolate', ['linear'], ['get', 'weight'], 0, 0, 0.4, 1],
+          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 5, 0.1, 15, 1.5],
           'heatmap-color': [
             'interpolate',
             ['linear'],
             ['heatmap-density'],
             0, 'rgba(0, 0, 0, 0)',
-            0.25, 'rgba(255, 0, 0, 0.1)',
-            0.5, 'rgba(255, 0, 0, 0.3)',
-            0.75, 'rgba(255, 0, 0, 0.6)',
-            1, 'rgba(255, 0, 0, 0.9)'
+            0.2, 'rgba(200, 0, 0, 0.2)',
+            0.4, 'rgba(220, 0, 0, 0.5)',
+            0.6, 'rgba(240, 0, 0, 0.7)',
+            0.8, 'rgba(255, 0, 0, 0.9)',
+            1, 'rgba(255, 0, 0, 1)'
           ],
-          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 5, 10, 15, 50],
-          'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 5, 0.4, 15, 0.8]
+          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 5, 15, 15, 60],
+          'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 5, 0.5, 15, 0.9]
         }
       })
 
-      // Yellow heatmap (moderate)
+      // Yellow heatmap (neutral feedback - ~3 stars)
       mapInstance.addLayer({
         id: 'yellow-heat',
         type: 'heatmap',
         source: 'heatmap',
-        filter: ['all', ['>=', ['get', 'weight'], 0.3], ['<', ['get', 'weight'], 0.6]],
+        filter: ['all', ['>=', ['get', 'weight'], 0.4], ['<', ['get', 'weight'], 0.6]],
         paint: {
-          'heatmap-weight': ['interpolate', ['linear'], ['get', 'weight'], 0, 0, 1, 1],
-          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 5, 0.1, 15, 1],
+          'heatmap-weight': ['interpolate', ['linear'], ['get', 'weight'], 0.4, 0, 0.6, 1],
+          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 5, 0.1, 15, 1.2],
           'heatmap-color': [
             'interpolate',
             ['linear'],
             ['heatmap-density'],
             0, 'rgba(0, 0, 0, 0)',
-            0.25, 'rgba(255, 255, 0, 0.1)',
-            0.5, 'rgba(255, 255, 0, 0.3)',
-            0.75, 'rgba(255, 255, 0, 0.6)',
-            1, 'rgba(255, 255, 0, 0.9)'
+            0.2, 'rgba(255, 200, 0, 0.2)',
+            0.4, 'rgba(255, 220, 0, 0.4)',
+            0.6, 'rgba(255, 240, 0, 0.6)',
+            0.8, 'rgba(255, 255, 0, 0.8)',
+            1, 'rgba(255, 255, 0, 1)'
           ],
-          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 5, 10, 15, 50],
+          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 5, 12, 15, 55],
           'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 5, 0.4, 15, 0.8]
         }
       })
 
-      // Green heatmap (safe to live)
+      // Green heatmap (positive feedback - 4-5 stars)
       mapInstance.addLayer({
         id: 'green-heat',
         type: 'heatmap',
         source: 'heatmap',
         filter: ['>=', ['get', 'weight'], 0.6],
         paint: {
-          'heatmap-weight': ['interpolate', ['linear'], ['get', 'weight'], 0, 0, 1, 1],
-          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 5, 0.1, 15, 1],
+          'heatmap-weight': ['interpolate', ['linear'], ['get', 'weight'], 0.6, 0, 1, 1],
+          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 5, 0.1, 15, 0.9],
           'heatmap-color': [
             'interpolate',
             ['linear'],
             ['heatmap-density'],
             0, 'rgba(0, 0, 0, 0)',
-            0.25, 'rgba(0, 255, 0, 0.1)',
-            0.5, 'rgba(0, 255, 0, 0.3)',
-            0.75, 'rgba(0, 255, 0, 0.6)',
+            0.2, 'rgba(0, 200, 0, 0.1)',
+            0.4, 'rgba(0, 200, 0, 0.3)',
+            0.6, 'rgba(0, 220, 0, 0.5)',
+            0.8, 'rgba(0, 240, 0, 0.7)',
             1, 'rgba(0, 255, 0, 0.9)'
           ],
-          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 5, 10, 15, 50],
-          'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 5, 0.4, 15, 0.8]
+          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 5, 10, 15, 45],
+          'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 5, 0.3, 15, 0.7]
         }
       })
 
@@ -311,9 +314,9 @@ export default function Map({ category, onDrawCreate, drawMode = null, heatmapSt
           ],
           'circle-color': [
             'case',
-            ['<', ['get', 'weight'], 0.3], 'rgba(255, 0, 0, 0.25)', // Red
-            ['<', ['get', 'weight'], 0.6], 'rgba(255, 255, 0, 0.25)', // Yellow
-            'rgba(0, 255, 0, 0.25)' // Green
+            ['<', ['get', 'weight'], 0.4], 'rgba(220, 0, 0, 0.4)',      // Red (1-2 stars)
+            ['<', ['get', 'weight'], 0.6], 'rgba(255, 200, 0, 0.4)',   // Yellow (~3 stars)
+            'rgba(0, 200, 0, 0.4)'                                     // Green (4-5 stars)
           ],
           'circle-blur': 0.5,
           'circle-opacity': 1

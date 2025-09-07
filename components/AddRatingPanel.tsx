@@ -1,20 +1,60 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { Plus, MapPin, Square, Trash2, AlertCircle, CheckCircle } from 'lucide-react'
-import { createRatingSchema, type CreateRatingInput } from '@/lib/zod-schemas'
+import { useState, useEffect, useCallback } from 'react';
+import { useForm, type SubmitHandler } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { 
+  Plus, 
+  MapPin, 
+  Square, 
+  Trash2, 
+  AlertCircle, 
+  CheckCircle, 
+  ArrowRight, 
+  Star, 
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Shield,
+  Building,
+  Home
+} from 'lucide-react';
+import { createRatingSchema, type CreateRatingInput } from '@/lib/zod-schemas';
+import { motion, AnimatePresence } from 'framer-motion';
+
+interface FormValues {
+  scores: {
+    safety: number;
+    amenities: number;
+    livability: number;
+  };
+  note: string;
+}
+
+interface Geometry {
+  type: 'Point' | 'Polygon';
+  coordinates: number[] | number[][][];
+}
+
+interface Feature {
+  geometry: Geometry;
+  properties?: Record<string, unknown>;
+}
 
 interface AddRatingPanelProps {
-  isOpen: boolean
-  onClose: () => void
-  onSubmit: (data: CreateRatingInput) => Promise<void>
-  isAuthenticated: boolean
-  onAuthRequired: () => void
-  drawnFeature?: any
-  onDrawModeChange?: (mode: 'point' | 'polygon' | null) => void
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (data: CreateRatingInput) => Promise<void>;
+  isAuthenticated: boolean;
+  onAuthRequired: () => void;
+  onDrawModeChange?: (mode: 'point' | 'polygon' | null) => void;
+  drawMode?: 'point' | 'polygon' | null;
+  onFeatureDrawn?: (feature: Feature) => void;
+  selectedFeature: Feature | null;
+  onClearDrawing: () => void;
+  deviceId: string;
+  drawnFeature?: Feature | null;
 }
 
 export default function AddRatingPanel({
@@ -23,340 +63,458 @@ export default function AddRatingPanel({
   onSubmit,
   isAuthenticated,
   onAuthRequired,
-  drawnFeature,
-  onDrawModeChange
+  onDrawModeChange,
+  drawMode,
+  onFeatureDrawn,
+  selectedFeature,
+  onClearDrawing,
+  deviceId,
+  drawnFeature
 }: AddRatingPanelProps) {
-  const [drawMode, setDrawMode] = useState<'point' | 'polygon' | null>(null)
-  const [selectedFeature, setSelectedFeature] = useState<any>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [submitStatus, setSubmitStatus] = useState<'success' | 'error' | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [localDrawMode, setLocalDrawMode] = useState<'point' | 'polygon' | null>(null);
+  const [localSelectedFeature, setLocalSelectedFeature] = useState<Feature | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<'success' | 'error' | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [hoveredRating, setHoveredRating] = useState<Record<string, number>>({});
+
+  // Use the prop if provided, otherwise use local state
+  const currentDrawMode = drawMode ?? localDrawMode;
+  const currentSelectedFeature = selectedFeature ?? localSelectedFeature;
+
+  const categories = [
+    { id: 'safety', label: 'Safety', icon: Shield, color: 'bg-red-500' },
+    { id: 'amenities', label: 'Amenities', icon: Building, color: 'bg-blue-500' },
+    { id: 'livability', label: 'Livability', icon: Home, color: 'bg-green-500' },
+  ] as const;
+
+  // Sync local state with props
+  useEffect(() => {
+    if (drawMode !== undefined) {
+      setLocalDrawMode(drawMode);
+    }
+    if (selectedFeature !== undefined) {
+      setLocalSelectedFeature(selectedFeature);
+    }
+  }, [drawMode, selectedFeature]);
 
   // Update selectedFeature when drawnFeature changes
   useEffect(() => {
     if (drawnFeature) {
-      setSelectedFeature(drawnFeature)
-      setDrawMode(null)
+      setLocalSelectedFeature(drawnFeature);
+      setLocalDrawMode(null);
+      onFeatureDrawn?.(drawnFeature);
     }
-  }, [drawnFeature])
+  }, [drawnFeature, onFeatureDrawn]);
 
   // Create a form schema without geometry (we'll add it manually)
   const formSchema = z.object({
     scores: z.object({
-      safety: z.number().min(0).max(10),
-      amenities: z.number().min(0).max(10),
-      livability: z.number().min(0).max(10),
+      safety: z.number().min(1).max(5),
+      amenities: z.number().min(1).max(5),
+      livability: z.number().min(1).max(5),
     }),
-    note: z.string().max(140).optional(),
-  })
+    note: z.string().max(280).optional(),
+  });
 
-  const form = useForm({
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      scores: { safety: 5, amenities: 5, livability: 5 },
+      scores: { safety: 0, amenities: 0, livability: 0 },
       note: ''
     }
-  })
+  });
 
-  const handleStartDrawing = (mode: 'point' | 'polygon') => {
-    if (!isAuthenticated) {
-      onAuthRequired()
-      return
+  const { register, handleSubmit, formState: { errors }, setValue, watch, reset } = form;
+
+  const scores = watch('scores');
+
+  // Get device ID from cookie or generate a new one
+  const getDeviceId = useCallback((): string => {
+    if (typeof window === 'undefined') return '';
+
+    // Check if we already have a device ID in cookies
+    const match = document.cookie.match(/(?:^|;\s*)deviceId=([^;]*)/);
+    if (match) return match[1];
+
+    // Generate a new device ID and store it in cookies
+    const newDeviceId = `device_${Math.random().toString(36).substr(2, 9)}`;
+    document.cookie = `deviceId=${newDeviceId}; path=/; max-age=${60 * 60 * 24 * 365}`;
+    return newDeviceId;
+  }, []);
+
+  // Type-safe way to set score values
+  const setScore = useCallback((category: keyof FormValues['scores'], value: number) => {
+    setValue(`scores.${category}`, value, { shouldValidate: true });
+  }, [setValue]);
+
+  const handleFormSubmit: SubmitHandler<FormValues> = useCallback(async (data) => {
+    if (!currentSelectedFeature) {
+      setError('Please select a location first');
+      return;
     }
-    setDrawMode(mode)
-    setSelectedFeature(null)
-    setError(null)
-    setSubmitStatus(null)
-    onDrawModeChange?.(mode)
-  }
 
-  const handleFeatureDrawn = (feature: any) => {
-    setSelectedFeature(feature)
-    setDrawMode(null)
-  }
+    const submitData: CreateRatingInput = {
+      ...data,
+      geometry: currentSelectedFeature.geometry,
+      deviceId: getDeviceId()
+    };
 
-  const handleSubmitRating = async (data: CreateRatingInput) => {
-    console.log('🎯 handleSubmitRating called with data:', data)
-    console.log('🎯 selectedFeature state:', selectedFeature)
-    
-    if (!selectedFeature) {
-      console.log('❌ No selectedFeature - showing error')
-      setError('Please draw a point or polygon on the map first')
-      return
+    await handleSubmitRating(submitData);
+  }, [currentSelectedFeature, getDeviceId]);
+
+  const handleSubmitRating = useCallback(async (data: CreateRatingInput) => {
+    console.log('🎯 handleSubmitRating called with data:', data);
+    console.log('🎯 currentSelectedFeature state:', currentSelectedFeature);
+
+    if (!currentSelectedFeature) {
+      console.log('❌ No currentSelectedFeature - showing error');
+      setError('Please draw a point or polygon on the map first');
+      return;
     }
 
-    setIsSubmitting(true)
-    setError(null)
+    setIsSubmitting(true);
+    setError(null);
 
     try {
-      // Get device ID from cookie or generate one
-      let deviceId = document.cookie
-        .split('; ')
-        .find(row => row.startsWith('deviceId='))
-        ?.split('=')[1]
-
-      if (!deviceId) {
-        deviceId = crypto.randomUUID()
-        document.cookie = `deviceId=${deviceId}; path=/; max-age=${365 * 24 * 60 * 60}` // 1 year
-      }
-
-      const submitData: CreateRatingInput = {
-        geometry: selectedFeature.geometry,
-        scores: data.scores,
-        note: data.note || undefined,
-        deviceId
-      }
-
-      console.log('🚀 AddRatingPanel: Submitting rating data:', submitData)
-      const result = await onSubmit(submitData)
-      console.log('✅ AddRatingPanel: Rating submitted successfully:', result)
-      
-      setSubmitStatus('success')
-      form.reset()
-      clearDrawing()
+      await onSubmit(data);
+      console.log('✅ AddRatingPanel: Rating submitted successfully');
+      setSubmitStatus('success');
+      reset();
+      onClearDrawing();
     } catch (err: any) {
-      console.error('❌ AddRatingPanel: Submit rating error:', err)
-      
-      // Handle specific error types
-      if (err.message.includes('Authentication required') || err.message.includes('Unauthorized')) {
-        setError('Please log in to submit a rating')
-        onAuthRequired()
-      } else if (err.message.includes('Rate limit')) {
-        setError('You have reached the daily limit of 10 ratings. Please try again tomorrow.')
-      } else {
-        setError(err.message || 'Failed to submit rating. Please try again.')
-      }
-      
-      setSubmitStatus('error')
+      console.error('❌ AddRatingPanel: Submit rating error:', err);
+      setError(err.message || 'Failed to submit rating. Please try again.');
+      setSubmitStatus('error');
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  }, [currentSelectedFeature, onClearDrawing, onSubmit, reset]);
 
-  const clearDrawing = () => {
-    setSelectedFeature(null)
-    setDrawMode(null)
-    onDrawModeChange?.(null)
-    setError(null)
-    setSubmitStatus(null)
-  }
+  const handleStartDrawing = useCallback((mode: 'point' | 'polygon') => {
+    if (!isAuthenticated) {
+      onAuthRequired();
+      return;
+    }
+    const newDrawMode = mode;
+    setLocalDrawMode(newDrawMode);
+    setLocalSelectedFeature(null);
+    setError(null);
+    setSubmitStatus(null);
+    onDrawModeChange?.(newDrawMode);
+  }, [isAuthenticated, onAuthRequired, onDrawModeChange]);
 
-  if (!isOpen) return null
+  const handleFeatureDrawn = useCallback((feature: Feature) => {
+    setLocalSelectedFeature(feature);
+    setLocalDrawMode(null);
+    onFeatureDrawn?.(feature);
+  }, [onFeatureDrawn]);
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b">
-          <h2 className="text-xl font-semibold">Add Rating</h2>
-          <button
-            onClick={onClose}
-            className="p-1 hover:bg-gray-100 rounded-full"
-          >
-            <Plus className="w-5 h-5 rotate-45" />
-          </button>
-        </div>
+  const clearDrawing = useCallback(() => {
+    setLocalSelectedFeature(null);
+    setLocalDrawMode(null);
+    onDrawModeChange?.(null);
+    setError(null);
+    setSubmitStatus(null);
+    reset();
+  }, [onDrawModeChange, reset]);
 
-        <div className="p-6 space-y-6">
-          {/* Step 1: Draw on map */}
-          <div>
-            <h3 className="text-sm font-medium text-gray-700 mb-3">
-              1. Select location on map
-            </h3>
-            <div className="flex gap-2">
-              <button
-                onClick={() => handleStartDrawing('point')}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg border ${
-                  drawMode === 'point'
-                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                    : 'border-gray-300 hover:bg-gray-50'
+  const renderStars = useCallback((category: keyof FormValues['scores'], value: number) => {
+    return [1, 2, 3, 4, 5].map((star) => (
+      <button
+        key={star}
+        type="button"
+        className={`p-1 ${(hoveredRating[category] || value) >= star ? 'text-yellow-400' : 'text-gray-300'}`}
+        onMouseEnter={() => setHoveredRating(prev => ({ ...prev, [category]: star }))}
+        onMouseLeave={() => setHoveredRating(prev => ({ ...prev, [category]: 0 }))}
+        onClick={() => {
+          setValue(`scores.${category}`, star);
+          setHoveredRating(prev => ({ ...prev, [category]: 0 }));
+        }}
+      >
+        <Star className="w-6 h-6 fill-current" />
+      </button>
+    ));
+  }, [hoveredRating, setValue]);
+
+  const renderStepIndicator = useCallback(() => {
+    const steps = [
+      { number: 1, label: 'Location' },
+      { number: 2, label: 'Rate' },
+      { number: 3, label: 'Review' }
+    ];
+
+    return (
+      <div className="flex items-center justify-between mb-8">
+        {steps.map((step, index) => {
+          const isCompleted = step.number < currentStep;
+          const isActive = step.number === currentStep;
+          const isLast = index === steps.length - 1;
+
+          return (
+            <div key={step.number} className="flex items-center">
+              <div
+                className={`flex items-center justify-center w-8 h-8 rounded-full ${
+                  isActive || isCompleted ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'
                 }`}
               >
-                <MapPin className="w-4 h-4" />
-                Point
-              </button>
-              <button
-                onClick={() => handleStartDrawing('polygon')}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg border ${
-                  drawMode === 'polygon'
-                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                    : 'border-gray-300 hover:bg-gray-50'
+                {isCompleted ? <CheckCircle className="w-5 h-5" /> : step.number}
+              </div>
+              <div
+                className={`text-sm font-medium ml-2 ${
+                  isActive ? 'text-blue-600' : isCompleted ? 'text-gray-600' : 'text-gray-400'
                 }`}
               >
-                <Square className="w-4 h-4" />
-                Area
-              </button>
-              {selectedFeature && (
-                <button
-                  onClick={clearDrawing}
-                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg border border-red-300"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                {step.label}
+              </div>
+              {!isLast && (
+                <div className="w-12 h-0.5 bg-gray-200 mx-2"></div>
               )}
             </div>
+          );
+        })}
+      </div>
+    );
+  }, [currentStep]);
+
+  const renderStep = useCallback(() => {
+    switch (currentStep) {
+      case 1:
+        return (
+          <div key="step-1" className="space-y-6">
+            <h3 className="text-lg font-medium text-gray-900">Select Location</h3>
+            <p className="text-sm text-gray-500">
+              Choose a point or draw an area on the map to rate this location
+            </p>
             
-            {selectedFeature && (
-              <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
-                ✓ Location selected ({selectedFeature.geometry.type})
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => handleStartDrawing('point')}
+                className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${
+                  currentDrawMode === 'point'
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
+                }`}
+              >
+                <MapPin className="h-6 w-6 text-gray-700 mb-2" />
+                <span className="text-sm font-medium">Point</span>
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => handleStartDrawing('polygon')}
+                className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${
+                  currentDrawMode === 'polygon'
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
+                }`}
+              >
+                <Square className="h-6 w-6 text-gray-700 mb-2" />
+                <span className="text-sm font-medium">Area</span>
+              </button>
+            </div>
+
+            {currentSelectedFeature && (
+              <div className="mt-4 p-3 bg-blue-50 rounded-lg flex items-center justify-between">
+                <div className="flex items-center">
+                  <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
+                  <span className="text-sm text-gray-700">
+                    {currentSelectedFeature.geometry.type === 'point' ? 'Point' : 'Area'} selected
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={clearDrawing}
+                  className="text-sm text-red-600 hover:text-red-800"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
               </div>
             )}
           </div>
+        );
 
-          {/* Step 2: Rate categories */}
-          <form 
-            onSubmit={(e) => {
-              console.log('📋 Form onSubmit triggered!')
-              console.log('📋 Form errors:', form.formState.errors)
-              console.log('📋 Form values:', form.getValues())
-              form.handleSubmit(
-                (data) => {
-                  console.log('✅ Form validation passed, calling handleSubmitRating')
-                  // Add geometry from selectedFeature to form data
-                  const submitData = {
-                    ...data,
-                    geometry: selectedFeature.geometry
-                  }
-                  console.log('📦 Complete submit data:', submitData)
-                  handleSubmitRating(submitData)
-                },
-                (errors) => {
-                  console.log('❌ Form validation failed:', errors)
-                }
-              )(e)
-            }} 
-            className="space-y-4"
-          >
-            <div>
-              <h3 className="text-sm font-medium text-gray-700 mb-3">
-                2. Rate this location
-              </h3>
-              
-              {/* Safety */}
-              <div className="mb-4">
-                <div className="flex justify-between items-center mb-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    Safety
-                  </label>
-                  <span className="text-sm text-gray-500">
-                    {form.watch('scores.safety')}/10
-                  </span>
-                </div>
-                <input
-                  {...form.register('scores.safety', { valueAsNumber: true })}
-                  type="range"
-                  min="0"
-                  max="10"
-                  step="1"
-                  className="slider w-full"
-                />
-              </div>
+      case 2:
+        return (
+          <div key="step-2" className="space-y-6">
+            <h3 className="text-lg font-medium text-gray-900">Rate this location</h3>
+            <p className="text-sm text-gray-500">
+              Rate the following aspects of this location from 1 to 5 stars
+            </p>
 
-              {/* Amenities */}
-              <div className="mb-4">
-                <div className="flex justify-between items-center mb-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    Amenities
-                  </label>
-                  <span className="text-sm text-gray-500">
-                    {form.watch('scores.amenities')}/10
-                  </span>
+            <div className="space-y-6">
+              {categories.map(({ id, label, icon: Icon, color }) => (
+                <div key={id} className="space-y-2">
+                  <div className="flex items-center">
+                    <div className={`w-8 h-8 rounded-full ${color} flex items-center justify-center mr-3`}>
+                      <Icon className="h-4 w-4 text-white" />
+                    </div>
+                    <span className="text-sm font-medium text-gray-700">{label}</span>
+                  </div>
+                  <div className="flex items-center">
+                    {renderStars(id as keyof FormValues['scores'], scores[id as keyof typeof scores] || 0)}
+                    <span className="ml-2 text-sm text-gray-500">
+                      {scores[id as keyof typeof scores] || 0} / 5
+                    </span>
+                  </div>
                 </div>
-                <input
-                  {...form.register('scores.amenities', { valueAsNumber: true })}
-                  type="range"
-                  min="0"
-                  max="10"
-                  step="1"
-                  className="slider w-full"
-                />
-              </div>
+              ))}
 
-              {/* Livability */}
-              <div className="mb-4">
-                <div className="flex justify-between items-center mb-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    Livability
-                  </label>
-                  <span className="text-sm text-gray-500">
-                    {form.watch('scores.livability')}/10
-                  </span>
-                </div>
-                <input
-                  {...form.register('scores.livability', { valueAsNumber: true })}
-                  type="range"
-                  min="0"
-                  max="10"
-                  step="1"
-                  className="slider w-full"
+              <div className="pt-2">
+                <label htmlFor="note" className="block text-sm font-medium text-gray-700 mb-1">
+                  Additional notes (optional)
+                </label>
+                <textarea
+                  id="note"
+                  {...register('note')}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 resize-none"
+                  placeholder="Share more details about your experience..."
                 />
+                {errors.note && (
+                  <p className="mt-1 text-sm text-red-600">{errors.note.message}</p>
+                )}
               </div>
             </div>
+          </div>
+        );
 
-            {/* Optional note */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Optional note (private)
-              </label>
-              <textarea
-                {...form.register('note')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                rows={3}
-                maxLength={140}
-                placeholder="Brief note about this location (not shown publicly)"
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                {form.watch('note')?.length || 0}/140 characters
-              </p>
+      case 3:
+        return (
+          <div key="step-3" className="space-y-6">
+            <h3 className="text-lg font-medium text-gray-900">Review your rating</h3>
+            
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h4 className="font-medium text-gray-900 mb-3">Location</h4>
+              <div className="flex items-center text-sm text-gray-600 mb-4">
+                <MapPin className="h-4 w-4 mr-2 text-gray-400" />
+                <span>{currentSelectedFeature?.geometry.type === 'Point' ? 'Point' : 'Area'} selected</span>
+              </div>
+
+              <h4 className="font-medium text-gray-900 mb-3">Ratings</h4>
+              <div className="space-y-3">
+                {categories.map(({ id, label, icon: Icon, color }) => (
+                  <div key={id} className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <div className={`w-6 h-6 rounded-full ${color} flex items-center justify-center mr-2`}>
+                        <Icon className="h-3 w-3 text-white" />
+                      </div>
+                      <span className="text-sm text-gray-600">{label}</span>
+                    </div>
+                    <div className="flex items-center">
+                      {[...Array(5)].map((_, i) => (
+                        <Star
+                          key={i}
+                          className={`h-4 w-4 ${i < (scores[id as keyof typeof scores] || 0) ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {watch('note') && (
+                <>
+                  <h4 className="font-medium text-gray-900 mt-4 mb-2">Notes</h4>
+                  <p className="text-sm text-gray-600 bg-white p-3 rounded border border-gray-200">
+                    {watch('note')}
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  }, [currentStep, currentDrawMode, currentSelectedFeature, categories, renderStars, scores, watch, register, errors.note, handleStartDrawing, clearDrawing]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+      <div className="w-full max-w-md">
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">
+                {currentStep === 1 ? 'Select Location' : currentStep === 2 ? 'Rate Location' : 'Review'}
+              </h2>
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-1.5 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
 
-            {/* Error/Success messages */}
-            {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                <span className="text-sm">{error}</span>
+            {renderStepIndicator()}
+
+            <form onSubmit={handleSubmit(handleFormSubmit)}>
+              {renderStep()}
+
+              {submitStatus === 'success' && (
+                <div className="mt-4 p-4 bg-green-50 text-green-800 rounded-lg">
+                  <div className="flex items-center">
+                    <CheckCircle className="h-5 w-5 mr-2" />
+                    <span>Rating submitted successfully!</span>
+                  </div>
+                </div>
+              )}
+
+              {error && (
+                <div className="mt-4 p-4 bg-red-50 text-red-800 rounded-lg">
+                  <div className="flex items-center">
+                    <AlertCircle className="h-5 w-5 mr-2" />
+                    <span>{error}</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-6 flex justify-between">
+                {currentStep > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(prev => Math.max(1, prev - 1))}
+                    className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    disabled={isSubmitting}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Previous
+                  </button>
+                ) : (
+                  <div />
+                )}
+
+                {currentStep < 3 ? (
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(prev => Math.min(3, prev + 1))}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                    disabled={isSubmitting || !currentSelectedFeature}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? 'Submitting...' : 'Submit Rating'}
+                  </button>
+                )}
               </div>
-            )}
-
-            {submitStatus === 'success' && (
-              <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2 text-green-700">
-                <CheckCircle className="w-4 h-4 flex-shrink-0" />
-                <span className="text-sm">Rating submitted successfully!</span>
-              </div>
-            )}
-
-            {/* Submit button */}
-            <button
-              type="submit"
-              disabled={!selectedFeature || isSubmitting || submitStatus === 'success'}
-              onClick={(e) => {
-                console.log('🔘 Submit button clicked!')
-                console.log('🔍 selectedFeature:', selectedFeature)
-                console.log('🔍 isSubmitting:', isSubmitting)
-                console.log('🔍 submitStatus:', submitStatus)
-                
-                // If button is disabled, prevent submission
-                if (!selectedFeature || isSubmitting || submitStatus === 'success') {
-                  console.log('❌ Button is disabled, preventing submission')
-                  e.preventDefault()
-                  return
-                }
-                
-                console.log('✅ Button enabled, form should submit')
-              }}
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? 'Submitting...' : 'Submit Rating'}
-            </button>
-          </form>
-
-          {/* Instructions */}
-          <div className="text-xs text-gray-500 space-y-1">
-            <p>• Your rating helps others discover safe and livable areas</p>
-            <p>• Individual locations are never shown, only aggregated heat</p>
-            <p>• Notes are private and used for moderation only</p>
+            </form>
           </div>
         </div>
       </div>
     </div>
-  )
+  );
 }

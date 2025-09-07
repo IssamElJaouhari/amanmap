@@ -68,8 +68,16 @@ export async function GET(request: NextRequest) {
     // Convert to GeoJSON features
     const features = Array.from(cellMap.entries()).map(([cellKey, data]) => {
       const [lng, lat] = cellKey.split(',').map(Number)
+      // Calculate average score (1-5)
       const averageScore = data.scores.reduce((a, b) => a + b, 0) / data.scores.length
-      const weight = averageScore / 10 // Normalize to 0-1
+      
+      // Enhanced weight calculation with non-linear mapping to emphasize negative feedback
+      // 1 -> 0.1 (very negative - strong red)
+      // 2 -> 0.3 (negative - red)
+      // 3 -> 0.5 (neutral - yellow)
+      // 4 -> 0.7 (positive - light green)
+      // 5 -> 1.0 (very positive - strong green)
+      const weight = 0.1 + (averageScore - 1) * 0.225
 
       return {
         type: 'Feature',
