@@ -40,7 +40,4 @@ const UserSchema = new Schema<IUser>({
   timestamps: true,
 })
 
-// Index for unique email
-UserSchema.index({ email: 1 }, { unique: true })
-
 export default mongoose.models.User || mongoose.model<IUser>('User', UserSchema)
