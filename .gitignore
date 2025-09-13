@@ -158,3 +158,10 @@ Thumbs.db
 
 # Environment files (keep example files but ignore actual values)
 !.env.example
+
+# Development and testing files (should not be in production)
+test-*.js
+test-*.html
+test-*.ts
+debug-*.md
+reset-*.js
