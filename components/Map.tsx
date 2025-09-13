@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import mapboxgl from 'mapbox-gl'
+// @ts-ignore - No types available for @mapbox/mapbox-gl-draw
 import MapboxDraw from '@mapbox/mapbox-gl-draw'
 import { useBbox } from '@/hooks/useBbox'
 import useSWR from 'swr'
@@ -222,104 +223,141 @@ export default function Map({ category, onDrawCreate, drawMode = null, heatmapSt
         data: heatmapData
       })
 
-      // Red heatmap (very negative feedback - 1-2 stars)
+      // Red heatmap (unsafe areas - 1-2 stars) - Enhanced blob style
       mapInstance.addLayer({
         id: 'red-heat',
         type: 'heatmap',
         source: 'heatmap',
         filter: ['<', ['get', 'weight'], 0.4],
         paint: {
-          'heatmap-weight': ['interpolate', ['linear'], ['get', 'weight'], 0, 0, 0.4, 1],
-          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 5, 0.1, 15, 1.5],
+          'heatmap-weight': ['interpolate', ['linear'], ['get', 'weight'], 0, 0, 0.4, 1.5],
+          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 5, 0.8, 15, 2.5],
           'heatmap-color': [
             'interpolate',
             ['linear'],
             ['heatmap-density'],
             0, 'rgba(0, 0, 0, 0)',
-            0.2, 'rgba(200, 0, 0, 0.2)',
-            0.4, 'rgba(220, 0, 0, 0.5)',
-            0.6, 'rgba(240, 0, 0, 0.7)',
-            0.8, 'rgba(255, 0, 0, 0.9)',
-            1, 'rgba(255, 0, 0, 1)'
+            0.1, 'rgba(139, 0, 0, 0.1)',      // Dark red center
+            0.3, 'rgba(178, 34, 34, 0.3)',    // Fire brick
+            0.5, 'rgba(220, 20, 60, 0.5)',    // Crimson
+            0.7, 'rgba(255, 69, 0, 0.7)',     // Red orange
+            0.85, 'rgba(255, 99, 71, 0.8)',   // Tomato
+            1, 'rgba(255, 160, 122, 0.9)'     // Light salmon edge
           ],
-          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 5, 15, 15, 60],
-          'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 5, 0.5, 15, 0.9]
+          'heatmap-radius': [
+            'interpolate', 
+            ['exponential', 1.5], 
+            ['zoom'], 
+            5, 25,    // Larger radius at low zoom
+            10, 45,   // Medium radius
+            15, 80,   // Large radius at high zoom
+            20, 120   // Very large for detailed view
+          ],
+          'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 5, 0.7, 15, 0.95]
         }
       })
 
-      // Yellow heatmap (neutral feedback - ~3 stars)
+      // Orange/Yellow heatmap (moderate areas - ~3 stars) - Enhanced blob style
       mapInstance.addLayer({
         id: 'yellow-heat',
         type: 'heatmap',
         source: 'heatmap',
         filter: ['all', ['>=', ['get', 'weight'], 0.4], ['<', ['get', 'weight'], 0.6]],
         paint: {
-          'heatmap-weight': ['interpolate', ['linear'], ['get', 'weight'], 0.4, 0, 0.6, 1],
-          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 5, 0.1, 15, 1.2],
+          'heatmap-weight': ['interpolate', ['linear'], ['get', 'weight'], 0.4, 0, 0.6, 1.3],
+          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 5, 0.6, 15, 2.0],
           'heatmap-color': [
             'interpolate',
             ['linear'],
             ['heatmap-density'],
             0, 'rgba(0, 0, 0, 0)',
-            0.2, 'rgba(255, 200, 0, 0.2)',
-            0.4, 'rgba(255, 220, 0, 0.4)',
-            0.6, 'rgba(255, 240, 0, 0.6)',
-            0.8, 'rgba(255, 255, 0, 0.8)',
-            1, 'rgba(255, 255, 0, 1)'
+            0.1, 'rgba(184, 134, 11, 0.1)',    // Dark orange center
+            0.3, 'rgba(217, 119, 6, 0.3)',     // Orange
+            0.5, 'rgba(245, 158, 11, 0.5)',    // Amber
+            0.7, 'rgba(251, 191, 36, 0.7)',    // Yellow-orange
+            0.85, 'rgba(254, 240, 138, 0.8)',  // Light yellow
+            1, 'rgba(255, 251, 235, 0.9)'      // Very light yellow edge
           ],
-          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 5, 12, 15, 55],
-          'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 5, 0.4, 15, 0.8]
+          'heatmap-radius': [
+            'interpolate', 
+            ['exponential', 1.4], 
+            ['zoom'], 
+            5, 20,    // Medium radius at low zoom
+            10, 38,   // Medium radius
+            15, 70,   // Large radius at high zoom
+            20, 100   // Large for detailed view
+          ],
+          'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 5, 0.6, 15, 0.85]
         }
       })
 
-      // Green heatmap (positive feedback - 4-5 stars)
+      // Green heatmap (safe areas - 4-5 stars) - Enhanced blob style
       mapInstance.addLayer({
         id: 'green-heat',
         type: 'heatmap',
         source: 'heatmap',
         filter: ['>=', ['get', 'weight'], 0.6],
         paint: {
-          'heatmap-weight': ['interpolate', ['linear'], ['get', 'weight'], 0.6, 0, 1, 1],
-          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 5, 0.1, 15, 0.9],
+          'heatmap-weight': ['interpolate', ['linear'], ['get', 'weight'], 0.6, 0, 1, 1.2],
+          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 5, 0.5, 15, 1.8],
           'heatmap-color': [
             'interpolate',
             ['linear'],
             ['heatmap-density'],
             0, 'rgba(0, 0, 0, 0)',
-            0.2, 'rgba(0, 200, 0, 0.1)',
-            0.4, 'rgba(0, 200, 0, 0.3)',
-            0.6, 'rgba(0, 220, 0, 0.5)',
-            0.8, 'rgba(0, 240, 0, 0.7)',
-            1, 'rgba(0, 255, 0, 0.9)'
+            0.1, 'rgba(0, 100, 0, 0.1)',       // Dark green center
+            0.3, 'rgba(34, 139, 34, 0.3)',     // Forest green
+            0.5, 'rgba(50, 205, 50, 0.5)',     // Lime green
+            0.7, 'rgba(124, 252, 0, 0.7)',     // Lawn green
+            0.85, 'rgba(173, 255, 47, 0.8)',   // Green yellow
+            1, 'rgba(240, 255, 240, 0.9)'      // Honeydew edge
           ],
-          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 5, 10, 15, 45],
-          'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 5, 0.3, 15, 0.7]
+          'heatmap-radius': [
+            'interpolate', 
+            ['exponential', 1.3], 
+            ['zoom'], 
+            5, 18,    // Smaller radius for safe areas
+            10, 35,   // Medium radius
+            15, 65,   // Large radius at high zoom
+            20, 90    // Large for detailed view
+          ],
+          'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 5, 0.5, 15, 0.8]
         }
       })
 
-      // Feedback dots on top
+      // Enhanced feedback dots with better visibility
       mapInstance.addLayer({
         id: 'feedback-dots',
         type: 'circle',
         source: 'heatmap',
-        minzoom: 10,
+        minzoom: 12,
         paint: {
           'circle-radius': [
             'interpolate',
             ['linear'],
             ['zoom'],
-            8, 20,
-            16, 40,
-            20, 60
+            10, 3,
+            14, 6,
+            18, 10,
+            22, 15
           ],
           'circle-color': [
             'case',
-            ['<', ['get', 'weight'], 0.4], 'rgba(220, 0, 0, 0.4)',      // Red (1-2 stars)
-            ['<', ['get', 'weight'], 0.6], 'rgba(255, 200, 0, 0.4)',   // Yellow (~3 stars)
-            'rgba(0, 200, 0, 0.4)'                                     // Green (4-5 stars)
+            ['<', ['get', 'weight'], 0.4], '#dc2626',      // Red (unsafe)
+            ['<', ['get', 'weight'], 0.6], '#f59e0b',      // Orange (moderate)
+            '#16a34a'                                       // Green (safe)
           ],
-          'circle-blur': 0.5,
-          'circle-opacity': 1
+          'circle-stroke-width': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            10, 1,
+            14, 2,
+            18, 3
+          ],
+          'circle-stroke-color': '#ffffff',
+          'circle-opacity': 0.9,
+          'circle-stroke-opacity': 0.8
         }
       })
     }
