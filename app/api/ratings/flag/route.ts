@@ -32,14 +32,14 @@ export async function POST(request: NextRequest) {
       message: 'Rating flagged for review',
       ratingId: rating._id
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Flag rating error:', error)
     
-    if (error.message === 'Unauthorized') {
+    if (error?.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     
-    if (error.name === 'ZodError') {
+    if (error?.name === 'ZodError') {
       return NextResponse.json(
         { error: 'Invalid input data', details: error.errors },
         { status: 400 }

@@ -50,7 +50,7 @@ export default function RadarChart({ title, data, height = 300 }: RadarChartProp
           padding: 20,
           font: {
             size: 12,
-            weight: '500'
+            weight: 'normal' as const
           }
         }
       },
@@ -95,7 +95,7 @@ export default function RadarChart({ title, data, height = 300 }: RadarChartProp
         pointLabels: {
           font: {
             size: 12,
-            weight: '500'
+            weight: 'normal' as const
           }
         }
       }

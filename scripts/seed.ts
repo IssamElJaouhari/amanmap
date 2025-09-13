@@ -7,11 +7,11 @@ import { computeCentroid, quantizeCentroid, addJitter } from '../lib/geo'
 
 // Morocco cities with coordinates
 const cities = [
-  { name: 'Casablanca', center: [-7.5898, 33.5731], radius: 0.1 },
-  { name: 'Rabat', center: [-6.8326, 34.0209], radius: 0.08 },
-  { name: 'Marrakech', center: [-7.9811, 31.6295], radius: 0.09 },
-  { name: 'Tangier', center: [-5.8340, 35.7595], radius: 0.07 },
-  { name: 'Agadir', center: [-9.5981, 30.4278], radius: 0.06 },
+  { name: 'Casablanca', center: [-7.5898, 33.5731] as [number, number], radius: 0.1 },
+  { name: 'Rabat', center: [-6.8326, 34.0209] as [number, number], radius: 0.08 },
+  { name: 'Marrakech', center: [-7.9811, 31.6295] as [number, number], radius: 0.09 },
+  { name: 'Tangier', center: [-5.8340, 35.7595] as [number, number], radius: 0.07 },
+  { name: 'Agadir', center: [-9.5981, 30.4278] as [number, number], radius: 0.06 },
 ]
 
 // Generate random point within radius using Poisson distribution

@@ -40,10 +40,10 @@ export async function POST(request: NextRequest) {
         roles: user.roles,
       },
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Registration error:', error)
     
-    if (error.name === 'ZodError') {
+    if (error?.name === 'ZodError') {
       return NextResponse.json(
         { error: 'Invalid input data', details: error.errors },
         { status: 400 }

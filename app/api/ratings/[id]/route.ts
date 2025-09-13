@@ -17,16 +17,17 @@ const updateRatingSchema = z.object({
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await requireAuth()
     const body = await request.json()
+    const { id } = await params
     
     await dbConnect()
     
     // Find the rating first to check ownership
-    const rating = await Rating.findById(params.id)
+    const rating = await Rating.findById(id)
     if (!rating) {
       return NextResponse.json(
         { error: 'Rating not found' },
@@ -48,7 +49,7 @@ export async function PATCH(
     if (session.user.isAdmin && 'status' in body) {
       const validatedFields = updateRatingStatusSchema.parse(body)
       updatedRating = await Rating.findByIdAndUpdate(
-        params.id,
+        id,
         { status: validatedFields.status },
         { new: true }
       )
@@ -62,7 +63,7 @@ export async function PATCH(
     // If user is updating their own rating
     const validatedFields = updateRatingSchema.parse(body)
     updatedRating = await Rating.findByIdAndUpdate(
-      params.id,
+      id,
       { 
         scores: validatedFields.scores,
         note: validatedFields.note,
@@ -102,14 +103,15 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await requireAuth()
+    const { id } = await params
     await dbConnect()
     
     // Find the rating first to check ownership
-    const rating = await Rating.findById(params.id)
+    const rating = await Rating.findById(id)
     if (!rating) {
       return NextResponse.json(
         { error: 'Rating not found' },
@@ -126,7 +128,7 @@ export async function DELETE(
     }
     
     // Delete the rating
-    await Rating.findByIdAndDelete(params.id)
+    await Rating.findByIdAndDelete(id)
 
     return NextResponse.json({
       message: 'Rating deleted successfully'

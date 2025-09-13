@@ -99,10 +99,10 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json(featureCollection)
-  } catch (error) {
+  } catch (error: any) {
     console.error('Heatmap error:', error)
     
-    if (error.name === 'ZodError') {
+    if (error?.name === 'ZodError') {
       return NextResponse.json(
         { error: 'Invalid query parameters', details: error.errors },
         { status: 400 }

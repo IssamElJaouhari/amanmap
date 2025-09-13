@@ -321,7 +321,7 @@ export default function AddRatingPanel({
                 <div className="flex items-center">
                   <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
                   <span className="text-sm text-gray-700">
-                    {currentSelectedFeature.geometry.type === 'point' ? 'Point' : 'Area'} selected
+                    {currentSelectedFeature.geometry.type === 'Point' ? 'Point' : 'Area'} selected
                   </span>
                 </div>
                 <button

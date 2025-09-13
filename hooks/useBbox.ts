@@ -8,6 +8,8 @@ export function useBbox(map: Map | null) {
     if (!map) return
     
     const bounds = map.getBounds()
+    if (!bounds) return
+    
     const newBbox = [
       bounds.getWest(),
       bounds.getSouth(),
