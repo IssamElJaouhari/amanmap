@@ -100,11 +100,11 @@ export default function HomePage() {
               <div className="flex-shrink-0 flex items-center ml-4 sm:ml-0">
                 <div className="flex items-center space-x-3">
                   <div className="relative group">
-                    <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-blue-300 rounded-lg blur opacity-20 group-hover:opacity-30 transition duration-200"></div>
+                    <div className="absolute -inset-1  rounded-lg blur opacity-20 group-hover:opacity-30 transition duration-200"></div>
                     <img 
                       src="/amanmaplogo.png" 
                       alt="AmanMap" 
-                      className="h-12 w-auto relative z-10 transform transition-transform duration-300 group-hover:scale-110"
+                      className="h-14 w-auto relative z-10 transform transition-transform duration-300 group-hover:scale-110"
                     />
                   </div>
                 </div>
@@ -185,9 +185,39 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Mobile menu */}
-          <div className={`${isMobileMenuOpen ? 'block' : 'hidden'} sm:hidden`}>
-            <div className="pt-2 pb-3 space-y-1 bg-white">
+        </div>
+      </header>
+
+      {/* Mobile overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="sm:hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity duration-300"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Mobile slide-in menu from right */}
+      <div className={`
+        sm:hidden fixed inset-y-0 right-0 z-50 w-80 bg-white shadow-xl border-l border-gray-200
+        transform transition-transform duration-300 ease-in-out
+        ${isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}
+      `}>
+        <div className="flex flex-col h-full">
+          {/* Mobile menu header */}
+          <div className="flex items-center justify-between p-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">Menu</h2>
+            <button
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="p-2 rounded-md hover:bg-gray-100"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Navigation categories */}
+          <div className="flex-1 p-4">
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Categories</h3>
               {categories.map((category) => {
                 const Icon = category.icon
                 return (
@@ -197,54 +227,57 @@ export default function HomePage() {
                       setSelectedCategory(category.id)
                       setIsMobileMenuOpen(false)
                     }}
-                    className={`w-full text-left px-3 py-2 rounded-md text-base font-medium ${
+                    className={`w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors ${
                       selectedCategory === category.id
-                        ? 'bg-blue-50 text-blue-700'
-                        : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                        : 'text-gray-700 hover:bg-gray-50'
                     }`}
                   >
-                    <div className="flex items-center">
-                      <Icon className="mr-3 h-5 w-5" />
-                      {category.label}
-                    </div>
+                    <Icon className="w-5 h-5" />
+                    <span className="font-medium">{category.label}</span>
                   </button>
                 )
               })}
             </div>
-            <div className="pt-4 pb-3 border-t border-gray-200">
-              {status === 'authenticated' ? (
-                <div className="space-y-1">
-                  <button
-                    onClick={() => {
-                      setIsAccountDrawerOpen(true)
-                      setIsMobileMenuOpen(false)
-                    }}
-                    className="w-full text-left block px-4 py-2 text-base font-medium text-gray-700 hover:bg-gray-100"
-                  >
-                    Account Settings
-                  </button>
-                  <button
-                    onClick={() => signOut()}
-                    className="w-full text-left block px-4 py-2 text-base font-medium text-red-600 hover:bg-red-50"
-                  >
-                    Sign out
-                  </button>
-                </div>
-              ) : (
+          </div>
+
+          {/* Auth section */}
+          <div className="border-t border-gray-200 p-4">
+            {status === 'authenticated' ? (
+              <div className="space-y-2">
                 <button
                   onClick={() => {
-                    setShowAuthDialog(true)
+                    setIsAccountDrawerOpen(true)
                     setIsMobileMenuOpen(false)
                   }}
-                  className="w-full text-center block px-4 py-2 text-base font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
+                  className="w-full flex items-center gap-3 p-3 rounded-lg text-gray-700 hover:bg-gray-50"
                 >
-                  Sign in
+                  <User className="w-5 h-5" />
+                  <span>Account Settings</span>
                 </button>
-              )}
-            </div>
+                <button
+                  onClick={() => signOut()}
+                  className="w-full flex items-center gap-3 p-3 rounded-lg text-red-600 hover:bg-red-50"
+                >
+                  <LogOut className="w-5 h-5" />
+                  <span>Sign out</span>
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => {
+                  setShowAuthDialog(true)
+                  setIsMobileMenuOpen(false)
+                }}
+                className="w-full flex items-center justify-center gap-2 p-3 text-white bg-blue-600 hover:bg-blue-700 rounded-lg font-medium"
+              >
+                <User className="w-5 h-5" />
+                <span>Sign in</span>
+              </button>
+            )}
           </div>
         </div>
-      </header>
+      </div>
 
       {/* Main Content */}
       <div className="flex-1 relative">
