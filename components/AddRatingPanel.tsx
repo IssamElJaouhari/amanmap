@@ -21,6 +21,7 @@ import {
   Home
 } from 'lucide-react';
 import { createRatingSchema, type CreateRatingInput } from '@/lib/zod-schemas';
+import { getCookie, setSecureCookie } from '../lib/cookieUtils';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface FormValues {
@@ -135,20 +136,13 @@ export default function AddRatingPanel({
     if (typeof window === 'undefined') return '';
 
     // Check if we already have a device ID in cookies
-    const match = document.cookie.match(/(?:^|;\s*)deviceId=([^;]*)/);
-    if (match) return match[1];
+    const existingId = getCookie('deviceId');
+    if (existingId) return existingId;
 
-    // Generate a new device ID and store it in cookies with security attributes
+    // Generate a new device ID and store it securely
     const newDeviceId = `device_${crypto.getRandomValues(new Uint8Array(8)).join('')}`;
-    const cookieOptions = [
-      `deviceId=${encodeURIComponent(newDeviceId)}`,
-      'path=/',
-      `max-age=${60 * 60 * 24 * 90}`, // 90 days
-      'Secure',
-      'SameSite=Strict'
-    ].join('; ');
+    setSecureCookie('deviceId', newDeviceId, 90);
     
-    document.cookie = cookieOptions;
     return newDeviceId;
   }, []);
 
