@@ -138,9 +138,18 @@ export default function AddRatingPanel({
     const match = document.cookie.match(/(?:^|;\s*)deviceId=([^;]*)/);
     if (match) return match[1];
 
-    // Generate a new device ID and store it in cookies
-    const newDeviceId = `device_${Math.random().toString(36).substr(2, 9)}`;
-    document.cookie = `deviceId=${newDeviceId}; path=/; max-age=${60 * 60 * 24 * 365}`;
+    // Generate a new device ID and store it in cookies with security attributes
+    const newDeviceId = `device_${crypto.getRandomValues(new Uint8Array(8)).join('')}`;
+    const cookieOptions = [
+      `deviceId=${encodeURIComponent(newDeviceId)}`,
+      'path=/',
+      `max-age=${60 * 60 * 24 * 90}`, // 90 days
+      'Secure',
+      'HttpOnly',
+      'SameSite=Strict'
+    ].join('; ');
+    
+    document.cookie = cookieOptions;
     return newDeviceId;
   }, []);
 
