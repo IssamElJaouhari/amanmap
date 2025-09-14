@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useSession, signOut } from 'next-auth/react'
-import { Plus, User, LogOut, Shield, Building, Home, Menu, X } from 'lucide-react'
+import { MapPin, User, LogOut, Shield, Building, Home, Menu, X } from 'lucide-react'
 import Map from '@/components/Map'
 import AuthDialog from '@/components/AuthDialog'
 import AddRatingPanel from '@/components/AddRatingPanel'
@@ -80,38 +80,24 @@ export default function HomePage() {
       {/* Enhanced Navbar */}
       <header className="bg-white shadow-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              {/* Mobile menu button */}
-              <button
-                type="button"
-                className="inline-flex items-center justify-center p-2 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 sm:hidden"
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              >
-                <span className="sr-only">Open main menu</span>
-                {isMobileMenuOpen ? (
-                  <X className="block h-6 w-6" aria-hidden="true" />
-                ) : (
-                  <Menu className="block h-6 w-6" aria-hidden="true" />
-                )}
-              </button>
-
-              {/* Brand */}
-              <div className="flex-shrink-0 flex items-center ml-4 sm:ml-0">
-                <div className="flex items-center space-x-3">
-                  <div className="relative group">
-                    <div className="absolute -inset-1  rounded-lg blur opacity-20 group-hover:opacity-30 transition duration-200"></div>
-                    <img 
-                      src="/amanmaplogo.png" 
-                      alt="AmanMap" 
-                      className="h-14 w-auto relative z-10 transform transition-transform duration-300 group-hover:scale-110"
-                    />
-                  </div>
-                </div>
+          <div className="flex items-center justify-between h-16">
+            {/* Logo Section */}
+            <div className="flex-shrink-0 flex items-center">
+              <div className="relative group">
+                <div className="absolute -inset-1 rounded-lg blur opacity-20 group-hover:opacity-30 transition duration-200"></div>
+                <img 
+                  src="/amanmaplogo.png" 
+                  alt="AmanMap" 
+                  className="h-14 w-auto relative z-10 transform transition-transform duration-300 group-hover:scale-110"
+                />
               </div>
+            </div>
+            
+            {/* Centered Navigation - Hidden on mobile */}
+            <div className="hidden sm:flex sm:items-center">
 
               {/* Desktop Navigation */}
-              <nav className="hidden sm:ml-6 sm:flex sm:items-center sm:space-x-1">
+              <nav className="hidden sm:flex sm:items-center sm:space-x-1">
                 {categories.map((category) => {
                   const Icon = category.icon
                   return (
@@ -134,54 +120,73 @@ export default function HomePage() {
                 })}
               </nav>
             </div>
+            
+            {/* Auth Section */}
+            <div className="flex items-center space-x-2">
+              {/* Mobile Menu Button - Only visible on mobile */}
+              <div className="sm:hidden">
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center p-2 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+                  onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                >
+                  <span className="sr-only">Open main menu</span>
+                  {isMobileMenuOpen ? (
+                    <X className="h-6 w-6" aria-hidden="true" />
+                  ) : (
+                    <Menu className="h-8 w-8" aria-hidden="true" />
+                  )}
+                </button>
+              </div>
 
-            {/* Desktop Auth Section */}
-            <div className="hidden sm:ml-6 sm:flex sm:items-center">
-              {status === 'loading' ? (
-                <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse"></div>
-              ) : session ? (
-                <div className="flex items-center space-x-4">
+              {/* Desktop Auth Section */}
+              <div className="hidden sm:block">
+                {status === 'loading' ? (
+                  <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse"></div>
+                ) : session ? (
+                  <div className="flex items-center space-x-4">
+                    <button
+                      onClick={() => setIsAccountDrawerOpen(true)}
+                      className="flex items-center space-x-2 p-1.5 rounded-full hover:bg-gray-100 transition-colors"
+                      aria-label="Account menu"
+                    >
+                      <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                        <User className="h-4 w-4" />
+                      </div>
+                      <span className="sr-only">Open user menu</span>
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowAuthDialog(true)}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    <User className="-ml-1 mr-2 h-4 w-4" />
+                    Sign in
+                  </button>
+                )}
+              </div>
+
+              {/* Mobile Auth - Only visible on mobile */}
+              <div className="sm:hidden">
+                {status === 'authenticated' ? (
                   <button
                     onClick={() => setIsAccountDrawerOpen(true)}
-                    className="flex items-center space-x-2 p-1.5 rounded-full hover:bg-gray-100 transition-colors"
+                    className="p-2 rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                     aria-label="Account menu"
                   >
-                    <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                      <User className="h-4 w-4" />
-                    </div>
-                    <span className="sr-only">Open user menu</span>
+                    <User className="h-6 w-6" />
                   </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setShowAuthDialog(true)}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  <User className="-ml-1 mr-2 h-4 w-4" />
-                  Sign in
-                </button>
-              )}
-            </div>
-
-            {/* Mobile menu button - auth */}
-            <div className="flex items-center sm:hidden">
-              {status === 'authenticated' ? (
-                <button
-                  onClick={() => setIsAccountDrawerOpen(true)}
-                  className="p-2 rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                  aria-label="Account menu"
-                >
-                  <User className="h-6 w-6" />
-                </button>
-              ) : (
-                <button
-                  onClick={() => setShowAuthDialog(true)}
-                  className="p-2 rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                  aria-label="Sign in"
-                >
-                  <User className="h-6 w-6" />
-                </button>
-              )}
+                ) : (
+                  <button
+                    onClick={() => setShowAuthDialog(true)}
+                    className="p-2 rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    aria-label="Sign in"
+                  >
+                    <User className="h-6 w-6" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -332,10 +337,11 @@ export default function HomePage() {
           
           <button
             onClick={handleAddRating}
-            className="flex items-center justify-center w-14 h-14 rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700 transition-colors transform hover:scale-105"
+            className="flex items-center justify-center space-x-2 px-6 h-14 rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700 transition-colors transform hover:scale-105"
             title="Add rating"
           >
-            <Plus className="h-6 w-6" />
+            <MapPin className="h-5 w-5" />
+            <span>Add Rating</span>
           </button>
         </div>
       </div>
