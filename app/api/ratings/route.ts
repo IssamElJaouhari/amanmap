@@ -4,53 +4,38 @@ import Rating from '@/models/Rating'
 import { requireAuth, requireAdmin } from '@/lib/auth'
 import { createRatingSchema } from '@/lib/zod-schemas'
 import { computeCentroid, quantizeCentroid, addJitter } from '@/lib/geo'
-import { checkRateLimit } from '@/lib/rate-limit'
-import { containsProfanity } from '@/lib/profanity'
+import { checkEnhancedRateLimit } from '@/lib/enhanced-rate-limit'
+import { InputSanitizer, EnhancedProfanityFilter } from '@/lib/input-sanitizer'
 
 export async function POST(request: NextRequest) {
-  console.log('🚀 POST /api/ratings - Starting rating submission')
-  
   try {
     // Parse request body first
     const body = await request.json()
-    console.log('📝 Request body received:', JSON.stringify(body, null, 2))
     
     // Validate input data
     const validatedFields = createRatingSchema.parse(body)
-    console.log('✅ Input validation passed')
     
     // Check authentication
     let session
     try {
       session = await requireAuth()
-      console.log('👤 User authenticated:', { userId: session.user.id, email: session.user.email })
     } catch (authError: any) {
-      console.error('🚫 Authentication failed:', authError.message)
-      return NextResponse.json({ error: 'Authentication required. Please log in.' }, { status: 401 })
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
     
     // Connect to database
     try {
       await dbConnect()
-      console.log('🔗 Database connected successfully')
     } catch (dbError: any) {
-      console.error('❌ Database connection failed:', dbError.message)
-      return NextResponse.json(
-        { 
-          error: 'Database connection failed. Please ensure MongoDB is running.',
-          details: 'Check your MONGODB_URI environment variable and MongoDB service.'
-        },
-        { status: 503 }
-      )
+      console.error('Database connection failed')
+      return NextResponse.json({ error: 'Service temporarily unavailable' }, { status: 503 })
     }
 
     // Rate limiting
     const rateLimitKey = session.user.id
-    const rateLimit = checkRateLimit(rateLimitKey, 10) // 10 per day
-    console.log('⏱️ Rate limit check:', { allowed: rateLimit.allowed, remaining: rateLimit.remaining })
+    const rateLimit = checkEnhancedRateLimit(rateLimitKey, 'RATING_SUBMIT')
     
     if (!rateLimit.allowed) {
-      console.log('❌ Rate limit exceeded for user:', session.user.id)
       return NextResponse.json(
         { 
           error: 'Rate limit exceeded',
@@ -63,24 +48,28 @@ export async function POST(request: NextRequest) {
 
     // Compute centroid
     const centroid = computeCentroid(validatedFields.geometry)
-    console.log('📍 Computed centroid:', centroid)
     
     // Quantize centroid for privacy
     const quantizedCentroid = quantizeCentroid(centroid)
-    console.log('🔒 Quantized centroid:', quantizedCentroid)
     
     // Add slight jitter
     const jitteredCentroid: [number, number] = [
       addJitter(quantizedCentroid[0]),
       addJitter(quantizedCentroid[1])
     ]
-    console.log('🎲 Jittered centroid:', jitteredCentroid)
 
-    // Check for profanity in note
+    // Enhanced content analysis
     let status = 'approved'
-    if (validatedFields.note && containsProfanity(validatedFields.note)) {
-      status = 'pending'
-      console.log('⚠️ Profanity detected, setting status to pending')
+    if (validatedFields.note) {
+      const sanitizedNote = InputSanitizer.sanitizeText(validatedFields.note, 140)
+      const contentAnalysis = EnhancedProfanityFilter.analyzeContent(sanitizedNote)
+      
+      if (contentAnalysis.hasProfanity || contentAnalysis.isSuspicious || contentAnalysis.riskScore > 30) {
+        status = 'pending'
+      }
+      
+      // Update the note with sanitized version
+      validatedFields.note = sanitizedNote
     }
 
     // Prepare rating document
@@ -96,16 +85,9 @@ export async function POST(request: NextRequest) {
       status,
       deviceId: validatedFields.deviceId,
     }
-    console.log('📄 Rating document to create:', JSON.stringify(ratingDoc, null, 2))
 
     // Create rating
     const rating = await Rating.create(ratingDoc)
-    console.log('✅ Rating created successfully:', { 
-      id: rating._id, 
-      userId: rating.userId,
-      scores: rating.scores,
-      status: rating.status 
-    })
 
     const response = {
       success: true,
@@ -122,42 +104,32 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    console.log('🎉 Sending success response:', response)
     return NextResponse.json(response)
     
   } catch (error: any) {
-    console.error('❌ Create rating error:', {
-      message: error.message,
-      stack: error.stack,
-      name: error.name,
-      ...(error.errors && { zodErrors: error.errors })
-    })
+    console.error('Create rating error:', error.name)
     
     if (error.message === 'Unauthorized') {
-      console.log('🚫 Unauthorized access attempt')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     
     if (error.name === 'ZodError') {
-      console.log('📋 Validation error:', error.errors)
       return NextResponse.json(
-        { error: 'Invalid input data', details: error.errors },
+        { error: 'Invalid input data' },
         { status: 400 }
       )
     }
 
     // MongoDB specific errors
     if (error.name === 'MongoError' || error.name === 'MongooseError') {
-      console.error('🗄️ Database error:', error)
       return NextResponse.json(
-        { error: 'Database error', details: error.message },
+        { error: 'Database error' },
         { status: 500 }
       )
     }
 
-    console.error('💥 Unexpected error:', error)
     return NextResponse.json(
-      { error: 'Internal server error', details: error.message },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }

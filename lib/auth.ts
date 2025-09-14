@@ -4,6 +4,8 @@ import bcrypt from 'bcrypt'
 import dbConnect from './db'
 import User from '../models/User'
 import { loginSchema } from './zod-schemas'
+import { checkEnhancedRateLimit } from './enhanced-rate-limit'
+import { InputSanitizer } from './input-sanitizer'
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -19,11 +21,28 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          const validatedFields = loginSchema.parse(credentials)
+          // Rate limiting for auth attempts
+          const clientIP = credentials.email // Using email as identifier for rate limiting
+          const rateLimit = checkEnhancedRateLimit(clientIP, 'AUTH_ATTEMPTS')
+          
+          if (!rateLimit.allowed) {
+            console.warn('Auth rate limit exceeded for:', credentials.email)
+            return null
+          }
+
+          // Sanitize and validate input
+          const sanitizedEmail = InputSanitizer.sanitizeEmail(credentials.email)
+          const validatedFields = loginSchema.parse({
+            email: sanitizedEmail,
+            password: credentials.password
+          })
+          
           await dbConnect()
 
           const user = await User.findOne({ email: validatedFields.email })
           if (!user) {
+            // Add delay to prevent timing attacks
+            await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 200))
             return null
           }
 
@@ -33,18 +52,20 @@ export const authOptions: NextAuthOptions = {
           )
 
           if (!isValidPassword) {
+            // Add delay to prevent timing attacks
+            await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 200))
             return null
           }
 
           return {
             id: user._id.toString(),
             email: user.email,
-            name: user.name || user.email.split('@')[0], // Fallback to email username if name not set
+            name: user.name || user.email.split('@')[0],
             roles: user.roles,
             isAdmin: user.roles.includes('admin')
           }
         } catch (error) {
-          console.error('Auth error:', error)
+          console.error('Auth error')
           return null
         }
       }
@@ -52,6 +73,8 @@ export const authOptions: NextAuthOptions = {
   ],
   session: {
     strategy: 'jwt',
+    maxAge: 24 * 60 * 60, // 24 hours
+    updateAge: 2 * 60 * 60, // Update session every 2 hours
   },
   callbacks: {
     async jwt({ token, user }) {

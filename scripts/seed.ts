@@ -1,5 +1,6 @@
 import mongoose from 'mongoose'
 import bcrypt from 'bcrypt'
+import { randomBytes } from 'crypto'
 import dbConnect from '../lib/db'
 import User from '../models/User'
 import Rating from '../models/Rating'
@@ -67,23 +68,25 @@ async function createSeedData() {
     await Rating.deleteMany({})
     console.log('🗑️ Cleared existing data')
 
-    // Create admin user
-    const adminPassword = await bcrypt.hash('admin123', 12)
+    // Create admin user with secure random password
+    const adminPassword = process.env.ADMIN_PASSWORD || randomBytes(16).toString('hex')
+    const adminPasswordHash = await bcrypt.hash(adminPassword, 12)
     const adminUser = await User.create({
-      email: 'admin@amanmap.com',
-      passwordHash: adminPassword,
+      email: process.env.ADMIN_EMAIL || 'admin@amanmap.com',
+      passwordHash: adminPasswordHash,
       roles: ['user', 'admin'],
       provider: 'credentials'
     })
-    console.log('👤 Created admin user: admin@amanmap.com (password: admin123)')
+    console.log('👤 Created admin user:', process.env.ADMIN_EMAIL || 'admin@amanmap.com')
 
-    // Create test users
+    // Create test users with secure random passwords
     const testUsers = []
     for (let i = 1; i <= 10; i++) {
-      const password = await bcrypt.hash(`user${i}123`, 12)
+      const randomPassword = randomBytes(12).toString('hex')
+      const passwordHash = await bcrypt.hash(randomPassword, 12)
       const user = await User.create({
         email: `user${i}@example.com`,
-        passwordHash: password,
+        passwordHash: passwordHash,
         roles: ['user'],
         provider: 'credentials'
       })
@@ -219,8 +222,12 @@ async function createSeedData() {
     console.log(`   - Ratings: ${totalRatings + 5} (${totalRatings} approved, 5 pending)`)
     console.log(`   - Cities: ${cities.length}`)
     console.log(`\n🔑 Admin credentials:`)
-    console.log(`   Email: admin@amanmap.com`)
-    console.log(`   Password: admin123`)
+    console.log(`   Email: ${process.env.ADMIN_EMAIL || 'admin@amanmap.com'}`)
+    if (!process.env.ADMIN_PASSWORD) {
+      console.log(`   Password: ${adminPassword} (SAVE THIS - randomly generated)`)
+    } else {
+      console.log(`   Password: [Using ADMIN_PASSWORD env var]`)
+    }
     console.log(`\n🌐 Visit http://localhost:3000 to see the app`)
     console.log(`🛠️ Visit http://localhost:3000/admin for admin panel`)
 
