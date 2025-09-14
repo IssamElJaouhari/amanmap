@@ -145,7 +145,6 @@ export default function AddRatingPanel({
       'path=/',
       `max-age=${60 * 60 * 24 * 90}`, // 90 days
       'Secure',
-      'HttpOnly',
       'SameSite=Strict'
     ].join('; ');
     
