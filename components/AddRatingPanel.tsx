@@ -33,14 +33,24 @@ interface FormValues {
   note: string;
 }
 
-interface Geometry {
-  type: 'Point' | 'Polygon';
-  coordinates: number[] | number[][][];
-}
+// GeoJSON compatible types
+type Position = [number, number]; // [longitude, latitude]
+type Point = {
+  type: 'Point';
+  coordinates: Position;
+};
 
-interface Feature {
+type Polygon = {
+  type: 'Polygon';
+  coordinates: Position[][];
+};
+
+type Geometry = Point | Polygon;
+
+interface Feature<T = GeoJSON.GeoJsonProperties> {
+  type: 'Feature';
   geometry: Geometry;
-  properties?: Record<string, unknown>;
+  properties?: T;
 }
 
 interface AddRatingPanelProps {
@@ -141,7 +151,7 @@ export default function AddRatingPanel({
 
     // Generate a new device ID and store it securely
     const newDeviceId = `device_${crypto.getRandomValues(new Uint8Array(8)).join('')}`;
-    setSecureCookie('deviceId', newDeviceId, 90);
+    setSecureCookie('deviceId', newDeviceId, { days: 90 }); // Store for 90 days
     
     return newDeviceId;
   }, []);
@@ -151,7 +161,9 @@ export default function AddRatingPanel({
     setValue(`scores.${category}`, value, { shouldValidate: true });
   }, [setValue]);
 
-  const handleFormSubmit: SubmitHandler<FormValues> = useCallback(async (data) => {
+  const handleFormSubmit: SubmitHandler<FormValues> = useCallback(async (data, event) => {
+    event?.preventDefault();
+    
     if (!currentSelectedFeature) {
       setError('Please select a location first');
       return;
@@ -163,10 +175,15 @@ export default function AddRatingPanel({
       deviceId: getDeviceId()
     };
 
-    await handleSubmitRating(submitData);
+    try {
+      await handleSubmitRating(submitData);
+      onClose(); // Close the modal after successful submission
+    } catch (error) {
+      console.error('Error submitting rating:', error);
+    }
   }, [currentSelectedFeature, getDeviceId]);
 
-  const handleSubmitRating = useCallback(async (data: CreateRatingInput) => {
+  const handleSubmitRating = useCallback(async (data: CreateRatingInput): Promise<void> => {
     console.log('🎯 handleSubmitRating called with data:', data);
     console.log('🎯 currentSelectedFeature state:', currentSelectedFeature);
 
@@ -189,10 +206,11 @@ export default function AddRatingPanel({
       console.error('❌ AddRatingPanel: Submit rating error:', err);
       setError(err.message || 'Failed to submit rating. Please try again.');
       setSubmitStatus('error');
+      throw err; // Re-throw the error to be handled by the form submission
     } finally {
       setIsSubmitting(false);
     }
-  }, [currentSelectedFeature, onClearDrawing, onSubmit, reset]);
+  }, [currentSelectedFeature, onClearDrawing, onSubmit, reset, setError, setSubmitStatus, setIsSubmitting, onClose]);
 
   const handleStartDrawing = useCallback((mode: 'point' | 'polygon') => {
     if (!isAuthenticated) {
@@ -205,12 +223,30 @@ export default function AddRatingPanel({
     setError(null);
     setSubmitStatus(null);
     onDrawModeChange?.(newDrawMode);
-  }, [isAuthenticated, onAuthRequired, onDrawModeChange]);
+    onClose(); // Close the modal when starting to draw
+  }, [isAuthenticated, onAuthRequired, onDrawModeChange, onClose]);
+
+  const handleLocationSelect = useCallback((location: any) => {
+    const feature: Feature = {
+      type: 'Feature',
+      geometry: {
+        type: 'Point',
+        coordinates: [location.center[0], location.center[1]] as [number, number]
+      },
+      properties: {
+        name: location.place_name
+      }
+    };
+    setLocalSelectedFeature(feature);
+    setCurrentStep(2);
+    onClose(); // Close the modal after selecting a location
+  }, [onClose]);
 
   const handleFeatureDrawn = useCallback((feature: Feature) => {
     setLocalSelectedFeature(feature);
     setLocalDrawMode(null);
     onFeatureDrawn?.(feature);
+    setCurrentStep(2); // Move to the rating step after drawing
   }, [onFeatureDrawn]);
 
   const clearDrawing = useCallback(() => {
@@ -509,7 +545,7 @@ export default function AddRatingPanel({
                     className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
                     disabled={isSubmitting}
                   >
-                    {isSubmitting ? 'Submitting...' : 'Submit Rating'}
+                    {isSubmitting ? 'Submitting...' : 'Finish Rating'}
                   </button>
                 )}
               </div>
